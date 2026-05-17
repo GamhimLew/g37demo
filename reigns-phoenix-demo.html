@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>凤凰火 · 平安京</title>
+<style>
+/* ===== 全局基础 ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1a0f00;
+  color: #c9a84c;
+  font-family: "Noto Serif SC", "Source Han Serif SC", serif, "宋体";
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ===== 开始画面 ===== */
+#start-screen {
+  position: fixed;
+  inset: 0;
+  background: #1a0f00;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  transition: opacity 0.8s;
+}
+#start-screen.fade-out { opacity: 0; pointer-events: none; }
+
+.start-title {
+  font-size: 3rem;
+  color: #e8c96a;
+  letter-spacing: 0.3em;
+  text-shadow: 0 0 20px #ff6600aa;
+  margin-bottom: 0.5rem;
+}
+.start-subtitle {
+  font-size: 1rem;
+  color: #8a7040;
+  letter-spacing: 0.2em;
+  margin-bottom: 2rem;
+}
+.start-desc {
+  max-width: 320px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #a08040;
+  line-height: 1.9;
+  margin-bottom: 2.5rem;
+}
+#btn-start {
+  background: transparent;
+  border: 1px solid #c9a84c;
+  color: #c9a84c;
+  padding: 0.7rem 2.5rem;
+  font-size: 1rem;
+  font-family: inherit;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+#btn-start:hover {
+  background: #c9a84c22;
+  box-shadow: 0 0 12px #c9a84c55;
+}
+
+/* ===== 主游戏界面 ===== */
+#game-screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+  height: 100vh;
+  padding: 12px 16px;
+}
+#game-screen.active { display: flex; }
+
+/* ===== 属性仪表盘 ===== */
+#stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.stat-icon { font-size: 1.1rem; }
+.stat-track {
+  width: 100%;
+  height: 6px;
+  background: #3a2510;
+  border-radius: 3px;
+  overflow: visible;
+  position: relative;
+}
+.stat-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #c9a84c;
+  transition: width 0.25s ease, background 0.25s;
+  width: 50%;
+}
+.stat-fill.danger-low  { background: #cc3311; }
+.stat-fill.danger-high { background: #ff8800; }
+
+.stat-preview {
+  font-size: 0.6rem;
+  height: 14px;
+  line-height: 14px;
+  font-weight: bold;
+}
+.stat-preview.up   { color: #66dd66; }
+.stat-preview.down { color: #dd4444; }
+
+/* ===== 角色名 ===== */
+/* 角色名：改为卡片内部底部 */
+#bearer-name {
+  font-size: 0.8rem;
+  color: #8a7040;
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin-top: auto;   /* 推到卡片底部 */
+  padding-top: 10px;
+  min-height: 1.2em;
+  width: 100%;
+  border-top: 1px solid #3a2510;
+}
+
+/* ===== 卡片区域 ===== */
+#card-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+#card {
+  width: 260px;
+  min-height: 340px;
+  background: linear-gradient(160deg, #2a1a08 0%, #1e1206 100%);
+  border: 1px solid #5a4020;
+  border-radius: 12px;
+  padding: 24px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: grab;
+  position: relative;
+  box-shadow: 0 8px 32px #00000088;
+  transition: box-shadow 0.2s;
+  touch-action: none;
+  overflow: hidden;   /* 遮住 fondyesno 面板的初始溢出位置 */
+}
+#card:active { cursor: grabbing; }
+#card.end-card {
+  border-color: #661111;
+  background: linear-gradient(160deg, #2a0808 0%, #1a0404 100%);
+}
+#card.final-card {
+  border-color: #c9a84c;
+  background: linear-gradient(160deg, #1a1000 0%, #0a0800 100%);
+  box-shadow: 0 0 40px #c9a84c44;
+}
+
+.card-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  line-height: 1;
+}
+.card-question {
+  font-size: 0.88rem;
+  line-height: 1.8;
+  text-align: center;
+  color: #c9a84c;
+  flex: 1;
+}
+.card-answer {
+  font-size: 0.78rem;
+  color: #8a7040;
+  text-align: center;
+  margin-top: 12px;
+  min-height: 2.4em;
+  line-height: 1.6;
+  font-style: italic;
+  transition: opacity 0.2s;
+}
+.card-ornament {
+  width: 40px;
+  height: 1px;
+  background: #5a4020;
+  margin: 12px auto;
+}
+
+/* ===== fondyesno 决策面板（仿原版，卡片顶部向下滑入）===== */
+#fond-yesno {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  border-bottom: 1px solid #3a2510;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(to bottom, #1a0f00ee, transparent);
+  /* 初始藏在卡片顶部上方（overflow:hidden 裁掉） */
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+#fond-yesno.transitioning {
+  transition: transform 0.22s ease-out;
+}
+
+.fond-option {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  opacity: 0;
+}
+#fond-no  { color: #dd4444; }   /* 红色：拒绝，左侧，右滑(dx>0)高亮 */
+#fond-yes { color: #66cc66; }   /* 绿色：接受，右侧，左滑(dx<0)高亮 */
+
+/* ===== 底部状态栏 ===== */
+#status-bar {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 0 4px;
+  font-size: 0.72rem;
+  color: #5a4020;
+  letter-spacing: 0.12em;
+  border-top: 1px solid #2a1a08;
+  margin-top: 8px;
+}
+
+/* ===== 传承动画画面 ===== */
+#transmission-screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #1a0f00;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+#transmission-screen.active { display: flex; }
+
+.transmission-fire {
+  font-size: 4rem;
+  animation: flicker 0.3s infinite alternate;
+}
+@keyframes flicker {
+  from { opacity: 1; text-shadow: 0 0 20px #ff4400; }
+  to   { opacity: 0.4; text-shadow: 0 0 5px #ff4400; }
+}
+.transmission-text {
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: #8a7040;
+  letter-spacing: 0.2em;
+}
+
+/* ===== 真结局画面 ===== */
+#ending-screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #050300;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+#ending-screen.active { display: flex; }
+.ending-fire {
+  font-size: 5rem;
+  animation: ascend 3s infinite alternate;
+}
+@keyframes ascend {
+  from { transform: translateY(0); opacity: 0.7; }
+  to   { transform: translateY(-10px); opacity: 1; }
+}
+.ending-title {
+  font-size: 1.5rem;
+  color: #e8c96a;
+  letter-spacing: 0.3em;
+  margin: 1.5rem 0 1rem;
+}
+.ending-text {
+  max-width: 300px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #8a7040;
+  line-height: 2;
+}
+</style>
+</head>
+<body>
+
+<!-- 开始画面 -->
+<div id="start-screen">
+  <div class="start-title">凤 凰 火</div>
+  <div class="start-subtitle">平安京异闻录</div>
+  <div class="start-desc">
+    你诞生自凤凰的羽翼，一簇小小的火焰。<br>
+    带着使命降临于平安京，<br>
+    在每一次抉择中燃烧，直至熄灭。<br>
+    而后，火种传承，新的凤凰火再度降临。
+  </div>
+  <button id="btn-start">点 燃 使 命</button>
+</div>
+
+<!-- 主游戏界面 -->
+<div id="game-screen">
+  <!-- 属性仪表盘 -->
+  <div id="stats-bar">
+    <div class="stat-item">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-track"><div class="stat-fill" id="fill-bond"></div></div>
+      <div class="stat-preview" id="prev-bond"></div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-icon">🎨</div>
+      <div class="stat-track"><div class="stat-fill" id="fill-dye"></div></div>
+      <div class="stat-preview" id="prev-dye"></div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-icon">💥</div>
+      <div class="stat-track"><div class="stat-fill" id="fill-burn"></div></div>
+      <div class="stat-preview" id="prev-burn"></div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-icon">⚖️</div>
+      <div class="stat-track"><div class="stat-fill" id="fill-karma"></div></div>
+      <div class="stat-preview" id="prev-karma"></div>
+    </div>
+  </div>
+
+  <!-- 卡片区域 -->
+  <div id="card-area">
+    <div id="card">
+      <div class="card-icon" id="card-icon">🔥</div>
+      <div class="card-ornament"></div>
+      <div class="card-question" id="card-question">…</div>
+      <div class="card-answer" id="card-answer"></div>
+      <!-- 角色名：卡片底部，仿原版 "Patrichor the Swift" 位置 -->
+      <div id="bearer-name"></div>
+      <!-- fondyesno：左=接受(绿/YES)，右=拒绝(红/NO) -->
+      <!-- 右滑dx>0 → 左侧fond-no(红)亮；左滑dx<0 → 右侧fond-yes(绿)亮 -->
+      <div id="fond-yesno">
+        <span class="fond-option" id="fond-no">拒绝</span>
+        <span class="fond-option" id="fond-yes">接受</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部状态栏 -->
+  <div id="status-bar">
+    <span id="dynasty-label">第一世凤凰火</span>
+    <span>·</span>
+    <span id="turn-label">第 1 回</span>
+  </div>
+</div>
+
+<!-- 传承动画 -->
+<div id="transmission-screen">
+  <div class="transmission-fire" id="trans-fire">🔥</div>
+  <div class="transmission-text" id="trans-text">火种传承……</div>
+</div>
+
+<!-- 真结局 -->
+<div id="ending-screen">
+  <div class="ending-fire">✨</div>
+  <div class="ending-title">任 务 完 成</div>
+  <div class="ending-text" id="ending-text">
+    所有的使命已然完成……<br>
+    凤凰火轻轻熄灭，化作漫天星光。<br>
+    这一次，是真正的安息。
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  CARD DATA
+// ============================================================
+const CARDS = [
+  // ── 开场卡（weight=-1，必出）──────────────────────────────────────────
+  {
+    id:'intro', name:'intro', bearer:'凤凰',
+    conditions:'', lockturn:-1, weight:-1,
+    icon:'🌅',
+    question:'平安京。一座被妖怪、阴谋与命运交织的古都。\n你，一簇来自凤凰之翼的小小火焰，在此刻降临。\n使命尚不清晰，但你感知到——这座城市需要你。',
+    override_yes:'我已准备好', override_no:'我已准备好',
+    answer_yes:'火焰轻轻跳动，向平安京的深处飘去……',
+    answer_no:'火焰轻轻跳动，向平安京的深处飘去……',
+    yes:{ bond:5, dye:5, burn:0, karma:0 },
+    no: { bond:5, dye:5, burn:0, karma:0 }
+  },
+
+  // ── 八百比丘尼 ─────────────────────────────────────────────────────────
+  {
+    id:'yaobiku_1', name:'yaobiku_1', bearer:'八百比丘尼',
+    conditions:'', lockturn:20, weight:10,
+    icon:'🧘',
+    question:'一位白发如雪却面容年轻的女子拦住了你。"我已活了八百年，见过无数凤凰火的降临与熄灭。你愿听我讲述吗？"',
+    override_yes:'愿意聆听', override_no:'没有时间',
+    answer_yes:'她的眼神中流露出久违的温柔。',
+    answer_no:'她微微点头，如同早已料到。',
+    yes:{ bond:10, dye:5,  burn:0,  karma:5,  chain:'yaobiku_2' },
+    no: { bond:-5, dye:0,  burn:5,  karma:-5 }
+  },
+  {
+    id:'yaobiku_2', name:'yaobiku_2', bearer:'八百比丘尼',
+    conditions:'', lockturn:0, weight:0,
+    icon:'🌊',
+    question:'"每一世凤凰火都在问同一个问题——我为何而燃？"\n她说，"而答案，藏在你自己的选择里。"\n你如何回应？',
+    override_yes:'我为改变而燃', override_no:'我也不知道',
+    answer_yes:'她轻轻点头。"那便以改变为火，慎用，莫失控。"',
+    answer_no:'"诚实。"她微笑，"这正是开始的地方。"',
+    yes:{ bond:0,  dye:0,  burn:15, karma:5 },
+    no: { bond:10, dye:0,  burn:0,  karma:10 }
+  },
+  {
+    id:'yaobiku_3', name:'yaobiku_3', bearer:'八百比丘尼',
+    conditions:'', lockturn:30, weight:8,
+    icon:'🍃',
+    question:'八百比丘尼找到你，说她感知到你的火焰正在失衡。"不均的火焰容易走向极端。让我帮你调整？"',
+    override_yes:'接受调整', override_no:'我能掌控自己',
+    answer_yes:'她双手轻覆，温热的感觉传来，如同母亲的手掌。',
+    answer_no:'"好。记住，火的力量在于平衡。"',
+    yes:{ bond:8,  dye:0,  burn:-5, karma:8  },
+    no: { bond:-5, dye:0,  burn:10, karma:-5 }
+  },
+
+  // ── 青行灯（事件链开始）──────────────────────────────────────────────
+  {
+    id:'aoandon_start', name:'aoandon_start', bearer:'青行灯',
+    conditions:'!completed_aoandon', lockturn:-1, weight:12,
+    icon:'🏮',
+    question:'一盏幽蓝的灯笼在夜风中飘来。灯内有一张女子的脸，眼神冰冷。\n"今夜百物语第九十九个故事，需要你来讲。你可愿意？"',
+    override_yes:'讲故事', override_no:'不参与',
+    answer_yes:'她的蓝光将你包裹，故事开始了……',
+    answer_no:'灯笼慢慢飘走，留下阵阵寒意。',
+    yes:{ bond:-5, dye:15, burn:5,  karma:0,  chain:'aoandon_2', custom:{ aoandon_in:1 } },
+    no: { bond:5,  dye:-5, burn:-5, karma:5  }
+  },
+  {
+    id:'aoandon_2', name:'aoandon_2', bearer:'青行灯',
+    conditions:'aoandon_in', lockturn:0, weight:0,
+    icon:'🌀',
+    question:'你所讲的故事，是关于一位为了留住逝去之人而燃尽自身的修行者。\n故事讲完，青行灯沉默片刻。\n"那个修行者，是你的前世之一，不是吗？"',
+    override_yes:'……也许是', override_no:'只是故事',
+    answer_yes:'灯笼内闪过一丝悲悯的光。',
+    answer_no:'"故事里没有谎言，只有你不敢承认的真相。"',
+    yes:{ bond:5,  dye:10, burn:0,  karma:10, chain:'aoandon_end' },
+    no: { bond:0,  dye:5,  burn:0,  karma:5,  chain:'aoandon_end' }
+  },
+  {
+    id:'aoandon_end', name:'aoandon_end', bearer:'青行灯',
+    conditions:'aoandon_in', lockturn:0, weight:0,
+    icon:'✨',
+    question:'百物语的最后一盏灯熄灭了。青行灯回望你，\n"你的火焰照亮了这个故事的结尾。感谢。"\n她的身影与黑暗融为一体，消散不见。',
+    override_yes:'再见', override_no:'再见',
+    answer_yes:'黎明将至，平安京沉浸在最后的静谧中。',
+    answer_no:'黎明将至，平安京沉浸在最后的静谧中。',
+    yes:{ bond:0,  dye:5,  burn:0,  karma:5, custom:{ completed_aoandon:1, aoandon_in:0 } },
+    no: { bond:0,  dye:5,  burn:0,  karma:5, custom:{ completed_aoandon:1, aoandon_in:0 } }
+  },
+
+  // ── 源赖光 ─────────────────────────────────────────────────────────────
+  {
+    id:'yorimitsu_1', name:'yorimitsu_1', bearer:'源赖光',
+    conditions:'', lockturn:25, weight:9,
+    icon:'⚔️',
+    question:'武将源赖光手持太刀前来："平安京附近出现了一只大妖，我欲率兵讨伐，但需要一位向导探明妖气所在。火焰之灵，可愿相助？"',
+    override_yes:'引路', override_no:'太危险了',
+    answer_yes:'你在前方飘荡，为大军照亮妖气流动的方向。',
+    answer_no:'"懦弱的火焰，终究只能看着世界腐烂。"他冷哼离去。',
+    yes:{ bond:-5, dye:10, burn:15, karma:5,  chain:'yorimitsu_2' },
+    no: { bond:5,  dye:-5, burn:-5, karma:-5 }
+  },
+  {
+    id:'yorimitsu_2', name:'yorimitsu_2', bearer:'源赖光',
+    conditions:'', lockturn:0, weight:0,
+    icon:'🕷️',
+    question:'大蜘蛛妖盘踞山中，吐出的丝线已缠住三名士兵。\n源赖光问你："用火焰烧断蛛丝救人，还是留力对付蜘蛛本体？"',
+    override_yes:'救人优先', override_no:'直攻本体',
+    answer_yes:'士兵得救，但蜘蛛趁机逃入深山。',
+    answer_no:'蜘蛛被灭，但三名士兵未能生还。',
+    yes:{ bond:10, dye:5,  burn:-10, karma:15, custom:{ completed_spider:1 } },
+    no: { bond:-5, dye:0,  burn:15,  karma:-10, custom:{ completed_spider:1 } }
+  },
+
+  // ── 安倍晴明 ───────────────────────────────────────────────────────────
+  {
+    id:'seimei_1', name:'seimei_1', bearer:'安倍晴明',
+    conditions:'', lockturn:20, weight:8,
+    icon:'⭐',
+    question:'阴阳师安倍晴明在天文台俯瞰星图，头也不回地说：\n"今夜星象显示，有一簇火焰正面临三叉路口。那便是你，不是吗？"',
+    override_yes:'你说得对', override_no:'不过是占卜',
+    answer_yes:'"命运并非牢笼，而是邀请——邀请你做出真正的选择。"',
+    answer_no:'"否认命运的人，往往是被命运选中的人。"',
+    yes:{ bond:5,  dye:5,  burn:0,  karma:10 },
+    no: { bond:0,  dye:-5, burn:5,  karma:5  }
+  },
+  {
+    id:'seimei_2', name:'seimei_2', bearer:'安倍晴明',
+    conditions:'', lockturn:30, weight:7,
+    icon:'📜',
+    question:'晴明展示一卷封印符咒："城内有一处怨念已积聚百年，若不净化，将引发大祸。此事需要消耗大量灵气。你的火焰，可用于净化仪式？"',
+    override_yes:'贡献力量', override_no:'保留实力',
+    answer_yes:'仪式成功，你感到自己燃烧了许多，却也轻盈了许多。',
+    answer_no:'"理解。力量需在正确时刻使用。"他独自离去。',
+    yes:{ bond:10, dye:5, burn:-15, karma:15 },
+    no: { bond:-5, dye:0, burn:5,   karma:-5 }
+  },
+
+  // ── 平将门怨灵（事件链）──────────────────────────────────────────────
+  {
+    id:'masakado_start', name:'masakado_start', bearer:'平将门',
+    conditions:'!completed_masakado', lockturn:-1, weight:10,
+    icon:'👻',
+    question:'一道冰冷的杀气弥漫而来。平将门的怨灵浮现于你面前，\n"我的头颅分离于躯体，怨念已聚千年。你这小火焰，敢来听我诉苦？"',
+    override_yes:'愿意倾听', override_no:'退避',
+    answer_yes:'怨灵的气息中，混杂着无尽的不甘与悲怆。',
+    answer_no:'"懦弱。所有人都在逃避我。"怨灵的怒气更盛。',
+    yes:{ bond:-10, dye:10, burn:0,  karma:5,  chain:'masakado_2' },
+    no: { bond:0,  dye:-5, burn:0,  karma:-5 }
+  },
+  {
+    id:'masakado_2', name:'masakado_2', bearer:'平将门',
+    conditions:'', lockturn:0, weight:0,
+    icon:'💀',
+    question:'"我欲谋反，不过是不甘朝廷腐败。结果被斩首，千年后仍被诅咒！"\n他的怨念如暗风扑面。你如何回应？',
+    override_yes:'你的愤怒有道理', override_no:'放下执念吧',
+    answer_yes:'怨灵稍作沉默。"……终于有人承认了。"',
+    answer_no:'"说得容易！你可知那怒火如何难以熄灭？！"',
+    yes:{ bond:0,  dye:10, burn:5,  karma:5,  chain:'masakado_end' },
+    no: { bond:5,  dye:-5, burn:-5, karma:10, chain:'masakado_end' }
+  },
+  {
+    id:'masakado_end', name:'masakado_end', bearer:'平将门',
+    conditions:'', lockturn:0, weight:0,
+    icon:'🌸',
+    question:'平将门的怨灵渐渐平静，如同一阵风消散。\n"你这火焰……不像其他人只顾逃离。也许，这便是你与我的缘分。"\n他的怨念稍稍松动了一些。',
+    override_yes:'愿你得安', override_no:'愿你得安',
+    answer_yes:'怨灵点头，缓缓退入黑暗。今夜的诅咒，轻了一分。',
+    answer_no:'怨灵点头，缓缓退入黑暗。今夜的诅咒，轻了一分。',
+    yes:{ bond:5, dye:0, burn:0, karma:10, custom:{ completed_masakado:1 } },
+    no: { bond:5, dye:0, burn:0, karma:10, custom:{ completed_masakado:1 } }
+  },
+
+  // ── 随机事件（bearer: 'anyone'）────────────────────────────────────────
+  {
+    id:'event_matsuri', name:'event_matsuri', bearer:'anyone',
+    conditions:'', lockturn:15, weight:8,
+    icon:'🎋',
+    question:'祭典之夜，平安京的大路上人声鼎沸，纸灯笼如星河般延伸。\n一位少女请求你为灯笼点火："请火焰之灵，为我们的祭典赐予火光！"',
+    override_yes:'点燃灯笼', override_no:'静静旁观',
+    answer_yes:'灯笼一盏接一盏亮起，人们的笑声传遍长街。',
+    answer_no:'你退回暗处，看着人类的欢笑，感受着某种遥远。',
+    yes:{ bond:5,  dye:15, burn:-5, karma:5  },
+    no: { bond:0,  dye:-5, burn:0,  karma:5  }
+  },
+  {
+    id:'event_youkai', name:'event_youkai', bearer:'anyone',
+    conditions:'', lockturn:12, weight:9,
+    icon:'🦊',
+    question:'一只大狐妖正在迷惑平安京的贵族，以美丽的幻象索取供品。\n你已看穿其本来面目。是否揭穿？',
+    override_yes:'揭穿幻象', override_no:'不干涉',
+    answer_yes:'狐妖大怒而逃，贵族们清醒过来，却已损失许多财物。',
+    answer_no:'幻象持续，你默默离去，感受到一种无声的共谋。',
+    yes:{ bond:0,  dye:-10, burn:10, karma:10 },
+    no: { bond:0,  dye:10,  burn:0,  karma:-5 }
+  },
+  {
+    id:'event_noble', name:'event_noble', bearer:'anyone',
+    conditions:'', lockturn:14, weight:7,
+    icon:'👘',
+    question:'两位贵族因官职争执，请你评判谁更有资格担任要职。\n甲方有才却无背景，乙方背景深厚却平庸。',
+    override_yes:'支持有才者', override_no:'顺应权势',
+    answer_yes:'有才者感激涕零，权贵们对你侧目。',
+    answer_no:'权贵满意，有才者黯然。平安京的规则又一次运作了。',
+    yes:{ bond:5,  dye:-10, burn:5,  karma:15 },
+    no: { bond:0,  dye:10,  burn:0,  karma:-10 }
+  },
+  {
+    id:'event_monk', name:'event_monk', bearer:'anyone',
+    conditions:'', lockturn:18, weight:6,
+    icon:'☯️',
+    question:'一位高僧在寺庙修行时，察觉到你的存在，合十道：\n"火焰之灵，你是来自善念还是执念？这决定了你能走多远。"',
+    override_yes:'来自善念', override_no:'我也不确定',
+    answer_yes:'"那便持守善念，不被执念所噬。"他为你祈祷。',
+    answer_no:'"诚实即是修行的第一步。"他为你拨动念珠。',
+    yes:{ bond:10, dye:0,  burn:-5, karma:10 },
+    no: { bond:5,  dye:0,  burn:0,  karma:15 }
+  },
+  {
+    id:'event_drought', name:'event_drought', bearer:'anyone',
+    conditions:'dye>20', lockturn:20, weight:6,
+    icon:'🌾',
+    question:'久旱无雨，农村灾民涌入京城。你在民间游荡，\n百姓向你祈雨。你并非掌控雨水的神明，\n但你的火焰或许能引来云雾……',
+    override_yes:'尝试引雨', override_no:'坦诚无力',
+    answer_yes:'你燃烧成蒸汽，引来乌云……午后下了一场小雨。',
+    answer_no:'百姓失望，但有一位老者说："诚实的火焰更为难得。"',
+    yes:{ bond:-5, dye:5,  burn:-15, karma:10 },
+    no: { bond:5,  dye:0,  burn:5,   karma:5  }
+  },
+  {
+    id:'event_child', name:'event_child', bearer:'anyone',
+    conditions:'', lockturn:16, weight:8,
+    icon:'🧒',
+    question:'一个迷路的孩子独自坐在黑暗的街巷中，看见你便伸出手：\n"火焰姐姐，能送我回家吗？"',
+    override_yes:'送他回家', override_no:'指引方向',
+    answer_yes:'孩子牵着你飘动的光走，不一会儿便找到了母亲。',
+    answer_no:'你向他指明方向，孩子鼓起勇气，自己走了回去。',
+    yes:{ bond:5,  dye:15, burn:-5, karma:5  },
+    no: { bond:0,  dye:5,  burn:0,  karma:10 }
+  },
+  {
+    id:'event_poison', name:'event_poison', bearer:'anyone',
+    conditions:'burn>30', lockturn:22, weight:5,
+    icon:'🍵',
+    question:'有人在宫廷贵族的茶中下毒。你发现了，却只有片刻时间：\n用火焰烧毁茶水以阻止，还是让茶会正常进行观察是谁下的毒？',
+    override_yes:'烧毁茶水', override_no:'静观其变',
+    answer_yes:'茶会中断，下毒者趁乱逃脱，但目标得救。',
+    answer_no:'你看到了下毒者的面孔，但目标饮下了毒茶……所幸毒性轻微。',
+    yes:{ bond:5,  dye:5,  burn:-10, karma:15 },
+    no: { bond:0,  dye:5,  burn:-5,  karma:-5 }
+  },
+  {
+    id:'event_spirit', name:'event_spirit', bearer:'anyone',
+    conditions:'', lockturn:18, weight:7,
+    icon:'🌙',
+    question:'月圆之夜，一个迷失的幼小妖灵向你靠近，\n它似乎把你的火焰当成了自己的母亲。\n你如何处置？',
+    override_yes:'收留它', override_no:'温柔驱散',
+    answer_yes:'小妖灵跟在你身后，为你的火焰增添了一丝奇异的光彩。',
+    answer_no:'它在你的温柔中清醒，消散于月光里，回归自然。',
+    yes:{ bond:0,  dye:20, burn:5,  karma:0  },
+    no: { bond:5,  dye:0,  burn:0,  karma:5  }
+  },
+
+  // ── 真结局卡 ──────────────────────────────────────────────────────────
+  {
+    id:'final_peace', name:'final_peace', bearer:'end',
+    conditions:'completed_aoandon and completed_spider and completed_masakado and karma>29 and karma<71',
+    lockturn:0, weight:1000,
+    icon:'🌟',
+    question:'所有的使命已然完成。\n平安京的怨念得到了正视，蜘蛛妖被除，百物语走向了终章。\n你感觉到自己的火焰开始变得宁静——不是熄灭，而是升华。\n凤凰火轻轻熄灭，化作漫天星光。\n这一次，是真正的安息。',
+    override_yes:'安息', override_no:'安息',
+    answer_yes:'……', answer_no:'……',
+    yes:{ bond:0, dye:0, burn:0, karma:0 },
+    no: { bond:0, dye:0, burn:0, karma:0 },
+    isFinal: true
+  },
+
+  // ── 结局卡（8 张，bearer='end'）──────────────────────────────────────
+  {
+    id:'end_bond_low', name:'end_bond_low', bearer:'end',
+    conditions:'', lockturn:0, weight:0, icon:'🌑',
+    question:'与凤凰母体的联系悄然断裂。\n这簇火焰，在无人察觉的寂静中，轻轻熄灭了……\n\n（凤凰联结 耗尽）',
+    override_yes:'传承', override_no:'传承',
+    answer_yes:'新的火种，将从这份寂寞中诞生。',
+    answer_no:'新的火种，将从这份寂寞中诞生。',
+    yes:{ bond:0, dye:0, burn:0, karma:0 }, no:{ bond:0, dye:0, burn:0, karma:0 }, isEnd:true
+  },
+  {
+    id:'end_bond_high', name:'end_bond_high', bearer:'end',
+    conditions:'', lockturn:0, weight:0, icon:'🌕',
+    question:'凤凰母体将你吞噬。\n你的意识缓缓融入永恒的火焰之中，不再是你，而是全体……\n\n（凤凰联结 过溢）',
+    override_yes:'传承', override_no:'传承',
+    answer_yes:'从这次消融中，新的自我将再次分离而出。',
+    answer_no:'从这次消融中，新的自我将再次分离而出。',
+    yes:{ bond:0, dye:0, burn:0, karma:0 }, no:{ bond:0, dye:0, burn:0, karma:0 }, isEnd:true
+  },
+  {
+    id:'end_dye_low', name:'end_dye_low', bearer:'end',
+    conditions:'', lockturn:0, weight:0, icon:'👻',
+    question:'你如幽灵般游走于世间，无人能见，无处可依。\n与这个时代彻底脱节的火焰，终究无从燃烧……\n\n（染 耗尽）',
+    override_yes:'传承', override_no:'传承',
+    answer_yes:'下一世，将更深地融入这片土地。',
+    answer_no:'下一世，将更深地融入这片土地。',
+    yes:{ bond:0, dye:0, burn:0, karma:0 }, no:{ bond:0, dye:0, burn:0, karma:0 }, isEnd:true
+  },
+  {
+    id:'end_dye_high', name:'end_dye_high', bearer:'end',
+    conditions:'', lockturn:0, weight:0, icon:'🎭',
+    question:'你忘记了自己是一簇火焰。\n彻底成为了这个时代的一部分，使命消失在岁月里……\n\n（染 过溢）',
+    override_yes:'传承', override_no:'传承',
+    answer_yes:'下一世的火焰，将记得自己从何而来。',
+    answer_no:'下一世的火焰，将记得自己从何而来。',
+    yes:{ bond:0, dye:0, burn:0, karma:0 }, no:{ bond:0, dye:0, burn:0, karma:0 }, isEnd:true
+  },
+  {
+    id:'end_burn_low', name:'end_burn_low', bearer:'end',
+    conditions:'', lockturn:0, weight:0, icon:'❄️',
+    question:'火力耗尽。\n你再也无法推动任何改变，\n在这无力的寒意中，悄然消逝……\n\n（燃 耗尽）',
+    override_yes:'传承', override_no:'传承',
+    answer_yes:'下一世的火焰，将带着更旺的燃力降临。',
+    answer_no:'下一世的火焰，将带着更旺的燃力降临。',
+    yes:{ bond:0, dye:0, burn:0, karma:0 }, no:{ bond:0, dye:0, burn:0, karma:0 }, isEnd:true
+  },
+  {
+    id:'end_burn_high', name:'end_burn_high', bearer:'end',
+    conditions:'', lockturn:0, weight:0, icon:'💢',
+    question:'失控的燃烧，引燃了你不该触碰的一切。\n时代的反噬如暗浪将你吞没……\n\n（燃 过溢）',
+    override_yes:'传承', override_no:'传承',
+    answer_yes:'下一世，以更精准的力量降临。',
+    answer_no:'下一世，以更精准的力量降临。',
+    yes:{ bond:0, dye:0, burn:0, karma:0 }, no:{ bond:0, dye:0, burn:0, karma:0 }, isEnd:true
+  },
+  {
+    id:'end_karma_low', name:'end_karma_low', bearer:'end',
+    conditions:'', lockturn:0, weight:0, icon:'🌱',
+    question:'历练不足，这簇火焰尚未成形便已熄灭。\n使命需要积累，而你还未准备好……\n\n（业 耗尽）',
+    override_yes:'传承', override_no:'传承',
+    answer_yes:'下一世，将带着更多的历练再来。',
+    answer_no:'下一世，将带着更多的历练再来。',
+    yes:{ bond:0, dye:0, burn:0, karma:0 }, no:{ bond:0, dye:0, burn:0, karma:0 }, isEnd:true
+  },
+  {
+    id:'end_karma_high', name:'end_karma_high', bearer:'end',
+    conditions:'', lockturn:0, weight:0, icon:'⛓️',
+    question:'业债将你压垮。\n过去积累的错误，如锁链将你拖入无尽深渊……\n\n（业 过溢）',
+    override_yes:'传承', override_no:'传承',
+    answer_yes:'下一世，将以更轻盈的心再来。',
+    answer_no:'下一世，将以更轻盈的心再来。',
+    yes:{ bond:0, dye:0, burn:0, karma:0 }, no:{ bond:0, dye:0, burn:0, karma:0 }, isEnd:true
+  }
+];
+
+// ============================================================
+//  GAME STATE
+// ============================================================
+const state = {
+  stats: { bond: 50, dye: 50, burn: 50, karma: 50 },
+  customs: {},
+  turns: 0,
+  dynastyCount: 1,
+  nextCard: '',
+  lastBearer: '',
+  isOver: false,
+  cards: []   // runtime copy with nextturn tracking
+};
+
+// ============================================================
+//  CONDITION PARSER
+// ============================================================
+function testCond(condStr) {
+  if (!condStr || condStr.trim() === '') return true;
+  // OR 分割
+  const orParts = condStr.split(/\s+or\s+/i);
+  return orParts.some(orPart => {
+    // AND 分割
+    const andParts = orPart.split(/\s+and\s+/i);
+    return andParts.every(part => testSingle(part.trim()));
+  });
+}
+
+function testSingle(expr) {
+  // !flag
+  if (expr.startsWith('!')) {
+    const key = expr.slice(1);
+    return (state.customs[key] || 0) <= 0;
+  }
+  // varName>N
+  const gtM = expr.match(/^(\w+)>(\d+)$/);
+  if (gtM) return getVal(gtM[1]) > parseFloat(gtM[2]);
+  // varName<N
+  const ltM = expr.match(/^(\w+)<(\d+)$/);
+  if (ltM) return getVal(ltM[1]) < parseFloat(ltM[2]);
+  // varName=N
+  const eqM = expr.match(/^(\w+)=(\d+)$/);
+  if (eqM) return getVal(eqM[1]) === parseFloat(eqM[2]);
+  // 纯 flag（自定义变量 > 0）
+  if (/^\w+$/.test(expr)) {
+    if (['bond','dye','burn','karma'].includes(expr)) return getVal(expr) > 0;
+    return (state.customs[expr] || 0) > 0;
+  }
+  return true;
+}
+
+function getVal(key) {
+  if (key in state.stats) return state.stats[key];
+  return state.customs[key] || 0;
+}
+
+// ============================================================
+//  CARD SELECTION
+// ============================================================
+function selectCard() {
+  const deck = state.cards;
+
+  // chain 精确跳转
+  if (state.nextCard) {
+    const target = deck.find(c => c.name === state.nextCard);
+    state.nextCard = '';
+    if (target && testCond(target.conditions)) return target;
+  }
+
+  // 过滤候选卡
+  const candidates = deck.filter(c => {
+    if (c._locked) return false;
+    if (c.weight === 0) return false;
+    if (c.bearer === state.lastBearer && c.bearer !== 'anyone' && c.bearer !== 'end') return false;
+    if ((c._nextturn || 0) > state.turns) return false;
+    if (!testCond(c.conditions)) return false;
+    return true;
+  });
+
+  if (candidates.length === 0) return deck[0];
+
+  // weight=-1 强制
+  const forced = candidates.find(c => c.weight === -1);
+  if (forced) return forced;
+
+  // 加权随机
+  const total = candidates.reduce((s, c) => s + c.weight, 0);
+  let r = Math.random() * total;
+  for (const c of candidates) {
+    r -= c.weight;
+    if (r <= 0) return c;
+  }
+  return candidates[candidates.length - 1];
+}
+
+// ============================================================
+//  APPLY OUTCOME
+// ============================================================
+function applyOutcome(outcome) {
+  // 属性变化
+  ['bond','dye','burn','karma'].forEach(k => {
+    if (outcome[k] !== undefined && outcome[k] !== 0) {
+      state.stats[k] = Math.max(0, Math.min(100, state.stats[k] + outcome[k]));
+    }
+  });
+  // chain 跳转
+  if (outcome.chain) state.nextCard = outcome.chain;
+  // custom 变量
+  if (outcome.custom) {
+    Object.assign(state.customs, outcome.custom);
+  }
+}
+
+// ============================================================
+//  BOUNDARY CHECK → 设置 EndCard
+// ============================================================
+const END_CARD_MAP = {
+  bond:  { low: 'end_bond_low',  high: 'end_bond_high'  },
+  dye:   { low: 'end_dye_low',   high: 'end_dye_high'   },
+  burn:  { low: 'end_burn_low',  high: 'end_burn_high'  },
+  karma: { low: 'end_karma_low', high: 'end_karma_high' }
+};
+
+function checkBoundaries() {
+  for (const [k, v] of Object.entries(state.stats)) {
+    if (v <= 0) { state.nextCard = END_CARD_MAP[k].low;  return; }
+    if (v >= 100){ state.nextCard = END_CARD_MAP[k].high; return; }
+  }
+}
+
+// ============================================================
+//  LOCKTURN 处理
+// ============================================================
+function handleLockturn(card) {
+  if (card.lockturn === -1) {
+    // del：永久移除
+    state.cards = state.cards.filter(c => c !== card);
+  } else if (card.lockturn > 0) {
+    card._nextturn = state.turns + card.lockturn;
+  }
+}
+
+// ============================================================
+//  TRANSMISSION（传承）
+// ============================================================
+function doTransmission() {
+  state.stats = { bond: 50, dye: 50, burn: 50, karma: 50 };
+  state.customs = {};
+  state.turns = 0;
+  state.nextCard = '';
+  state.lastBearer = '';
+  state.dynastyCount++;
+  // 重新加载全部卡牌（恢复 del 卡，重置冷却）
+  state.cards = CARDS.map(c => Object.assign({}, c, { _nextturn: 0, _locked: false }));
+}
+
+// ============================================================
+//  RENDER
+// ============================================================
+const STAT_KEYS = ['bond', 'dye', 'burn', 'karma'];
+
+function renderStats() {
+  STAT_KEYS.forEach(k => {
+    const fill = document.getElementById('fill-' + k);
+    const v = state.stats[k];
+    fill.style.width = v + '%';
+    fill.classList.remove('danger-low', 'danger-high');
+    if (v <= 20) fill.classList.add('danger-low');
+    else if (v >= 80) fill.classList.add('danger-high');
+  });
+}
+
+function showPreview(outcomes) {
+  STAT_KEYS.forEach(k => {
+    const el = document.getElementById('prev-' + k);
+    const val = outcomes ? (outcomes[k] || 0) : 0;
+    if (val > 0)  { el.textContent = '▲ +' + val; el.className = 'stat-preview up'; }
+    else if (val < 0) { el.textContent = '▼ ' + val; el.className = 'stat-preview down'; }
+    else { el.textContent = ''; el.className = 'stat-preview'; }
+  });
+}
+
+function renderCard(card) {
+  const cardEl = document.getElementById('card');
+  cardEl.className = card.isEnd ? 'end-card' : card.isFinal ? 'final-card' : '';
+
+  const bearerName = document.getElementById('bearer-name');
+  bearerName.textContent = (card.bearer !== 'end' && card.bearer !== 'anyone') ? card.bearer : '';
+
+  document.getElementById('card-icon').textContent = card.icon || '🔥';
+  document.getElementById('card-question').textContent = card.question;
+  document.getElementById('card-answer').textContent = '';
+
+  // fondyesno文字：左=fond-no(拒绝/红)，右=fond-yes(接受/绿)
+  document.getElementById('fond-yes').textContent = card.override_yes || '接受';
+  document.getElementById('fond-no').textContent  = card.override_no  || '拒绝';
+  const fond = document.getElementById('fond-yesno');
+  fond.classList.remove('transitioning');
+  fond.style.transform = 'translateY(-100%)';
+  document.getElementById('fond-no').style.opacity  = '0';
+  document.getElementById('fond-yes').style.opacity = '0';
+}
+
+function renderStatus() {
+  const ordinals = ['','一','二','三','四','五','六','七','八','九','十',
+    '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十'];
+  const d = state.dynastyCount;
+  const label = (d <= 20) ? '第' + ordinals[d] + '世凤凰火' : '第' + d + '世凤凰火';
+  document.getElementById('dynasty-label').textContent = label;
+  document.getElementById('turn-label').textContent = '第 ' + (state.turns + 1) + ' 回';
+}
+
+// ============================================================
+//  CURRENT CARD HOLDER
+// ============================================================
+let currentCard = null;
+
+function nextTurn(outcome, isEndConfirm) {
+  if (outcome) {
+    applyOutcome(outcome);
+    renderStats();
+  }
+  if (!isEndConfirm) checkBoundaries();
+
+  if (currentCard) {
+    handleLockturn(currentCard);
+    if (currentCard.bearer !== 'end' && currentCard.bearer !== 'anyone') {
+      state.lastBearer = currentCard.bearer;
+    }
+    state.turns++;
+  }
+
+  renderStatus();
+  currentCard = selectCard();
+
+  if (!currentCard) { currentCard = state.cards[0]; }
+
+  // 真结局
+  if (currentCard && currentCard.isFinal) {
+    animateCardIn(currentCard);
+    setTimeout(() => showFinalEnding(), 2000);
+    return;
+  }
+
+  animateCardIn(currentCard);
+}
+
+// ============================================================
+//  CARD ANIMATION
+// ============================================================
+function animateCardIn(card) {
+  const cardEl = document.getElementById('card');
+  cardEl.style.transition = 'none';
+  cardEl.style.transform = 'translateX(0) translateY(80px) rotate(0deg)';
+  cardEl.style.opacity = '0';
+  renderCard(card);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      cardEl.style.transition = 'transform 0.28s ease-out, opacity 0.28s ease-out';
+      cardEl.style.transform = 'translateX(0) translateY(0) rotate(0deg)';
+      cardEl.style.opacity = '1';
+      // 新卡进入完成后解锁输入
+      setTimeout(() => { drag.locked = false; }, 300);
+    });
+  });
+}
+
+function animateCardOut(direction, callback) {
+  const cardEl = document.getElementById('card');
+  // 先停留 900ms 让玩家阅读答案文字，然后再飞出
+  setTimeout(() => {
+    const tx = direction * 600;
+    const rot = direction * 25;
+    cardEl.style.transition = 'transform 0.3s ease-in, opacity 0.3s ease-in';
+    cardEl.style.transform = `translateX(${tx}px) rotate(${rot}deg)`;
+    cardEl.style.opacity = '0';
+    setTimeout(callback, 320);
+  }, 900);
+}
+
+// ============================================================
+//  SWIPE / DRAG INTERACTION
+// ============================================================
+let drag = {
+  active: false,
+  startX: 0,
+  currentX: 0,
+  previewing: false,
+  locked: false   // 决策后锁定，防止动画期间重复触发
+};
+
+const PREVIEW_THRESH = 80;
+const DECIDE_THRESH  = 100;
+
+function onDragStart(x) {
+  if (drag.locked) return;   // 动画期间禁止新操作
+  drag.active = true;
+  drag.startX = x;
+  drag.currentX = x;
+  drag.previewing = false;
+  const cardEl = document.getElementById('card');
+  cardEl.style.transition = 'none';
+}
+
+function onDragMove(x) {
+  if (!drag.active) return;
+  drag.currentX = x;
+  const dx = x - drag.startX;
+  const rot = dx * 0.08;
+  const cardEl = document.getElementById('card');
+  cardEl.style.transform = `translateX(${dx}px) translateY(0) rotate(${rot}deg)`;
+
+  // ── fondyesno 面板控制（仿原版 fondyesno 逻辑）──
+  const fond    = document.getElementById('fond-yesno');
+  const fondNo  = document.getElementById('fond-no');
+  const fondYes = document.getElementById('fond-yes');
+
+  // 面板展开量：|dx| 超过 20px 开始滑入，超过 PREVIEW_THRESH 完全展开
+  const absDx = Math.abs(dx);
+  const slideRatio = Math.min(1, Math.max(0, (absDx - 20) / (PREVIEW_THRESH - 20)));
+  // translateY 从 -100%（完全隐藏在顶部上方）到 0%（完全展开，覆盖卡片顶部）
+  fond.classList.remove('transitioning');
+  fond.style.transform = `translateY(${-(1 - slideRatio) * 100}%)`;
+
+  if (absDx > 20) {
+    if (dx < 0) {
+      // 向左滑 → 右侧 fond-yes(绿/接受) 高亮
+      fondYes.style.opacity = String(slideRatio);
+      fondNo.style.opacity  = String(slideRatio * 0.25);
+      if (absDx > PREVIEW_THRESH && currentCard) showPreview(currentCard.yes);
+      else showPreview(null);
+    } else {
+      // 向右滑 → 左侧 fond-no(红/拒绝) 高亮
+      fondNo.style.opacity  = String(slideRatio);
+      fondYes.style.opacity = String(slideRatio * 0.25);
+      if (absDx > PREVIEW_THRESH && currentCard) showPreview(currentCard.no);
+      else showPreview(null);
+    }
+  } else {
+    fondNo.style.opacity  = '0';
+    fondYes.style.opacity = '0';
+    showPreview(null);
+  }
+}
+
+function onDragEnd() {
+  if (!drag.active) return;
+  drag.active = false;
+  const dx = drag.currentX - drag.startX;
+  const cardEl = document.getElementById('card');
+
+  if (Math.abs(dx) > DECIDE_THRESH) {
+    const dir = dx > 0 ? 1 : -1;
+    // 左滑(dir=-1) = 接受YES，右滑(dir=1) = 拒绝NO
+    const outcome    = dir === -1 ? currentCard.yes : currentCard.no;
+    const answerText = dir === -1 ? currentCard.answer_yes : currentCard.answer_no;
+
+    // 展示结果文字，锁定输入，收起 fondyesno 面板（回到顶部）
+    document.getElementById('card-answer').textContent = answerText;
+    const fond = document.getElementById('fond-yesno');
+    fond.classList.add('transitioning');
+    fond.style.transform = 'translateY(-100%)';
+    document.getElementById('fond-no').style.opacity  = '0';
+    document.getElementById('fond-yes').style.opacity = '0';
+    showPreview(null);
+    drag.locked = true;
+
+    const isEndCard = currentCard.isEnd;
+    const isFinalCard = currentCard.isFinal;
+
+    animateCardOut(dir, () => {
+      if (isFinalCard) { showFinalEnding(); return; }
+      if (isEndCard) {
+        showTransmission(outcome);
+      } else {
+        nextTurn(outcome, false);
+      }
+    });
+  } else {
+    // 弹回：卡片和面板都平滑归位（面板回到顶部上方）
+    const fond = document.getElementById('fond-yesno');
+    fond.classList.add('transitioning');
+    fond.style.transform = 'translateY(-100%)';
+    document.getElementById('fond-no').style.opacity  = '0';
+    document.getElementById('fond-yes').style.opacity = '0';
+
+    cardEl.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+    cardEl.style.transform = 'translateX(0) translateY(0) rotate(0deg)';
+    cardEl.style.opacity = '1';
+    showPreview(null);
+  }
+}
+
+// 鼠标事件
+const cardEl = document.getElementById('card');
+cardEl.addEventListener('mousedown', e => { e.preventDefault(); onDragStart(e.clientX); });
+document.addEventListener('mousemove', e => { if (drag.active) onDragMove(e.clientX); });
+document.addEventListener('mouseup', () => onDragEnd());
+
+// 触屏事件
+cardEl.addEventListener('touchstart', e => {
+  e.preventDefault();
+  onDragStart(e.touches[0].clientX);
+}, { passive: false });
+cardEl.addEventListener('touchmove', e => {
+  e.preventDefault();
+  onDragMove(e.touches[0].clientX);
+}, { passive: false });
+cardEl.addEventListener('touchend', () => onDragEnd());
+
+// ============================================================
+//  TRANSMISSION ANIMATION
+// ============================================================
+function showTransmission(outcome) {
+  const screen = document.getElementById('transmission-screen');
+  const fireEl = document.getElementById('trans-fire');
+  const textEl = document.getElementById('trans-text');
+
+  // 熄灭阶段
+  fireEl.textContent = '🔥';
+  textEl.textContent = '火种熄灭……';
+  screen.classList.add('active');
+
+  setTimeout(() => {
+    fireEl.textContent = '✨';
+    textEl.textContent = '火种传承……';
+  }, 800);
+
+  setTimeout(() => {
+    fireEl.textContent = '🔥';
+    textEl.textContent = '第 ' + (state.dynastyCount + 1) + ' 世凤凰火，降临！';
+  }, 1400);
+
+  setTimeout(() => {
+    screen.classList.remove('active');
+    doTransmission();
+    renderStats();
+    renderStatus();
+    nextTurn(null, true);
+  }, 2200);
+}
+
+// ============================================================
+//  FINAL ENDING
+// ============================================================
+function showFinalEnding() {
+  document.getElementById('ending-screen').classList.add('active');
+  state.isOver = true;
+}
+
+// ============================================================
+//  START GAME
+// ============================================================
+document.getElementById('btn-start').addEventListener('click', () => {
+  const startScreen = document.getElementById('start-screen');
+  startScreen.classList.add('fade-out');
+  setTimeout(() => {
+    startScreen.style.display = 'none';
+    document.getElementById('game-screen').classList.add('active');
+    // 初始化
+    state.cards = CARDS.map(c => Object.assign({}, c, { _nextturn: 0, _locked: false }));
+    renderStats();
+    renderStatus();
+    nextTurn(null, true);
+  }, 800);
+});
+</script>
+</body>
+</html>
