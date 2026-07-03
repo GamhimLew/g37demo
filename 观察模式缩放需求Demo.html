@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>观察模式 · 双指缩放镜头需求Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0d1117;
+      font-family: 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+      color: #e6e6e6;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: rgba(20,24,32,0.95);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: oklch(0.45 0.18 250);
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+    .header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f0f0f0;
+    }
+    .header-sub {
+      font-size: 12px;
+      color: #888;
+      margin-left: auto;
+    }
+
+    /* ── Main layout ── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Canvas area ── */
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #0a0f1e;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    /* ── Side panel ── */
+    .panel {
+      width: 280px;
+      background: rgba(16,20,30,0.97);
+      border-left: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 16px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .panel-section {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .panel-section h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: oklch(0.75 0.15 250);
+      margin-bottom: 10px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .stat-label { font-size: 12px; color: #888; }
+    .stat-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f0f0f0;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-value.highlight { color: oklch(0.8 0.2 145); }
+
+    /* Zoom bar */
+    .zoom-track {
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      margin: 4px 0 10px;
+      position: relative;
+    }
+    .zoom-fill {
+      height: 100%;
+      background: linear-gradient(90deg, oklch(0.55 0.2 250), oklch(0.7 0.2 145));
+      border-radius: 3px;
+      transition: width 0.05s;
+    }
+    .zoom-thumb {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px oklch(0.7 0.2 145);
+      transition: left 0.05s;
+    }
+
+    /* Toggle switches */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .toggle-label { font-size: 12px; color: #ccc; }
+    .toggle {
+      position: relative;
+      width: 34px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .toggle input { display: none; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.15);
+      border-radius: 9px;
+      transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: oklch(0.55 0.2 250); }
+    .toggle-knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle input:checked ~ .toggle-knob { transform: translateX(16px); }
+
+    .hint-box {
+      background: rgba(255,200,80,0.08);
+      border: 1px solid rgba(255,200,80,0.2);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 11px;
+      color: #c8a84b;
+      line-height: 1.6;
+    }
+    .hint-box b { color: #f0c060; }
+
+    .req-item {
+      font-size: 12px;
+      color: #aaa;
+      line-height: 1.7;
+      padding-left: 12px;
+      position: relative;
+    }
+    .req-item::before {
+      content: '▸';
+      position: absolute;
+      left: 0;
+      color: oklch(0.65 0.2 250);
+    }
+    .req-item + .req-item { margin-top: 6px; }
+    .req-item b { color: #e0e0e0; }
+
+    /* Max zoom badge */
+    .tbd-tag {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 6px;
+      background: rgba(255,120,80,0.2);
+      border: 1px solid rgba(255,120,80,0.4);
+      border-radius: 4px;
+      color: #ff9070;
+      margin-left: 4px;
+    }
+
+    /* Reset button */
+    .btn-reset {
+      width: 100%;
+      padding: 8px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      color: #bbb;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-reset:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <span class="badge">观察模式</span>
+  <h1>双指捏合缩放镜头 · 需求 Demo</h1>
+  <span class="header-sub">🖱 滚轮缩放 &nbsp;|&nbsp; 📱 双指捏合（移动端）</span>
+</div>
+
+<div class="main">
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+  </div>
+
+  <div class="panel">
+
+    <!-- 实时数据 -->
+    <div class="panel-section">
+      <h3>实时镜头状态</h3>
+      <div class="stat-row">
+        <span class="stat-label">缩放值 Zoom</span>
+        <span class="stat-value highlight" id="val-zoom">1.00</span>
+      </div>
+      <div class="zoom-track">
+        <div class="zoom-fill" id="bar-fill" style="width:0%"></div>
+        <div class="zoom-thumb" id="bar-thumb" style="left:0%"></div>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">相机 Z 偏移</span>
+        <span class="stat-value" id="val-cz">0.00</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">锚点（胸骨）</span>
+        <span class="stat-value" id="val-anchor">屏幕中心</span>
+      </div>
+    </div>
+
+    <!-- 可视化开关 -->
+    <div class="panel-section">
+      <h3>调试显示</h3>
+      <div class="toggle-row">
+        <span class="toggle-label">显示骨骼锚点</span>
+        <label class="toggle">
+          <input type="checkbox" id="tog-anchor" checked>
+          <div class="toggle-track"></div>
+          <div class="toggle-knob"></div>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">显示推进连线</span>
+        <label class="toggle">
+          <input type="checkbox" id="tog-line" checked>
+          <div class="toggle-track"></div>
+          <div class="toggle-knob"></div>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">显示移动轨迹</span>
+        <label class="toggle">
+          <input type="checkbox" id="tog-trail" checked>
+          <div class="toggle-track"></div>
+          <div class="toggle-knob"></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- 需求说明 -->
+    <div class="panel-section">
+      <h3>需求说明</h3>
+      <div class="req-item">
+        <b>推进锚点</b><br>绑定角色胸部骨骼，镜头沿自身→锚点连线方向推拉
+      </div>
+      <div class="req-item" style="margin-top:8px">
+        <b>缩放范围</b><br>初始值 1.0 = 最小值；最大值 <span class="tbd-tag">待定</span>
+      </div>
+      <div class="req-item" style="margin-top:8px">
+        <b>手势</b><br>双指捏合缩小 / 张开放大；桌面端滚轮模拟
+      </div>
+    </div>
+
+    <div class="hint-box">
+      <b>Demo 说明：</b><br>
+      橙色 × = 胸骨锚点<br>
+      蓝色虚线 = 相机→锚点连线方向<br>
+      绿色轨迹 = 相机随缩放的移动路径<br>
+      缩放时角色在画面中的占比随镜头远近变化
+    </div>
+
+    <button class="btn-reset" onclick="resetZoom()">↺ 重置镜头 (zoom = 1.0)</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// ── State ──────────────────────────────────────────
+const MIN_ZOOM = 1.0;
+const MAX_ZOOM = 3.5; // 暂定演示用，实际待定
+let zoom = 1.0;
+let camZ = 0;           // camera Z offset (世界单位)
+const CAM_MOVE_SCALE = 180; // zoom per unit → px movement in demo
+
+let trail = [];         // camera position history
+
+// Toggle flags
+let showAnchor = true;
+let showLine = true;
+let showTrail = true;
+
+// Touch pinch
+let lastPinchDist = null;
+
+// ── Resize ─────────────────────────────────────────
+function resize() {
+  canvas.width  = canvas.offsetWidth  * devicePixelRatio;
+  canvas.height = canvas.offsetHeight * devicePixelRatio;
+}
+window.addEventListener('resize', () => { resize(); draw(); });
+resize();
+
+// ── Anchor & camera in canvas coords ───────────────
+function anchorPos() {
+  // 胸骨锚点 = 画面偏上一点的中心
+  return { x: canvas.width / 2, y: canvas.height * 0.38 };
+}
+
+function camPos() {
+  // Demo: 相机初始在画面正中下方，随 zoom 沿连线向锚点推进
+  const base = { x: canvas.width / 2, y: canvas.height * 0.78 };
+  const anchor = anchorPos();
+  // 连线方向单位向量
+  const dx = anchor.x - base.x;
+  const dy = anchor.y - base.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const ux = dx / len, uy = dy / len;
+  // 推进量
+  const push = (zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM) * CAM_MOVE_SCALE;
+  return { x: base.x + ux * push, y: base.y + uy * push };
+}
+
+// ── Draw ───────────────────────────────────────────
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // ── Background: 庭院氛围 ──
+  drawBackground(W, H);
+
+  // ── 角色 (scale by zoom) ──
+  drawCharacter(W, H);
+
+  // ── 相机轨迹 ──
+  if (showTrail && trail.length > 1) {
+    ctx.save();
+    for (let i = 1; i < trail.length; i++) {
+      const t = i / trail.length;
+      ctx.beginPath();
+      ctx.moveTo(trail[i-1].x, trail[i-1].y);
+      ctx.lineTo(trail[i].x, trail[i].y);
+      ctx.strokeStyle = `rgba(80,220,120,${t * 0.6})`;
+      ctx.lineWidth = 1.5 * devicePixelRatio;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const anchor = anchorPos();
+  const cam = camPos();
+
+  // ── 推进连线 ──
+  if (showLine) {
+    ctx.save();
+    ctx.setLineDash([6 * devicePixelRatio, 5 * devicePixelRatio]);
+    ctx.strokeStyle = 'rgba(100,160,255,0.55)';
+    ctx.lineWidth = 1.5 * devicePixelRatio;
+    ctx.beginPath();
+    ctx.moveTo(cam.x, cam.y);
+    ctx.lineTo(anchor.x, anchor.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // 方向箭头
+    drawArrow(cam.x, cam.y, anchor.x, anchor.y, 'rgba(100,160,255,0.7)');
+  }
+
+  // ── 骨骼锚点（胸骨） ──
+  if (showAnchor) {
+    drawAnchorPoint(anchor.x, anchor.y);
+  }
+
+  // ── 相机图标 ──
+  drawCamera(cam.x, cam.y);
+
+  // ── HUD 缩放指示器 ──
+  drawHUD(W, H);
+}
+
+function drawBackground(W, H) {
+  // 渐变天空
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+  sky.addColorStop(0, '#0e1a2e');
+  sky.addColorStop(1, '#1a2840');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H * 0.6);
+
+  // 地面
+  const ground = ctx.createLinearGradient(0, H * 0.6, 0, H);
+  ground.addColorStop(0, '#1a1408');
+  ground.addColorStop(1, '#0d0a04');
+  ctx.fillStyle = ground;
+  ctx.fillRect(0, H * 0.6, W, H * 0.4);
+
+  // 月亮
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(W * 0.78, H * 0.12, 28 * devicePixelRatio, 0, Math.PI * 2);
+  ctx.fillStyle = '#f5e8c0';
+  ctx.shadowColor = '#f5e8c0';
+  ctx.shadowBlur = 40 * devicePixelRatio;
+  ctx.fill();
+  ctx.restore();
+
+  // 星星
+  const stars = [[0.1,0.05],[0.25,0.08],[0.4,0.03],[0.6,0.1],[0.85,0.06],[0.92,0.15],[0.15,0.18],[0.5,0.2],[0.7,0.04]];
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,220,0.8)';
+  stars.forEach(([sx,sy]) => {
+    ctx.beginPath();
+    ctx.arc(sx*W, sy*H, 1.5*devicePixelRatio, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.restore();
+
+  // 地平线辉光
+  ctx.save();
+  const glow = ctx.createLinearGradient(0, H*0.55, 0, H*0.65);
+  glow.addColorStop(0, 'rgba(80,60,20,0)');
+  glow.addColorStop(0.5, 'rgba(140,100,30,0.12)');
+  glow.addColorStop(1, 'rgba(80,60,20,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, H*0.55, W, H*0.1);
+  ctx.restore();
+
+  // 装饰性灯笼
+  drawLantern(W*0.2, H*0.35, 0.8);
+  drawLantern(W*0.8, H*0.32, 1.0);
+
+  // 前景地面纹理
+  ctx.save();
+  ctx.fillStyle = 'rgba(60,45,10,0.3)';
+  ctx.fillRect(0, H*0.62, W, 2*devicePixelRatio);
+  ctx.restore();
+}
+
+function drawLantern(x, y, scale) {
+  const s = devicePixelRatio * scale;
+  ctx.save();
+  ctx.translate(x, y);
+  // 绳子
+  ctx.strokeStyle = 'rgba(180,140,60,0.5)';
+  ctx.lineWidth = s;
+  ctx.beginPath(); ctx.moveTo(0,-20*s); ctx.lineTo(0,0); ctx.stroke();
+  // 灯笼体
+  ctx.fillStyle = 'rgba(220,60,30,0.7)';
+  ctx.shadowColor = 'rgba(240,100,20,0.8)';
+  ctx.shadowBlur = 20*s;
+  ctx.beginPath();
+  ctx.ellipse(0, 8*s, 10*s, 14*s, 0, 0, Math.PI*2);
+  ctx.fill();
+  // 高光
+  ctx.fillStyle = 'rgba(255,180,100,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(-2*s, 4*s, 4*s, 6*s, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCharacter(W, H) {
+  // 角色以锚点（胸骨）为参考，zoom 越大角色在视觉上越大
+  const anchor = anchorPos();
+  const scale = zoom;
+
+  ctx.save();
+  ctx.translate(anchor.x, anchor.y);
+  ctx.scale(scale, scale);
+
+  const s = devicePixelRatio;
+  const bodyH = 80*s;
+
+  // 裙摆
+  ctx.beginPath();
+  ctx.moveTo(-30*s, 20*s);
+  ctx.quadraticCurveTo(0, 90*s, 30*s, 20*s);
+  ctx.fillStyle = 'rgba(160,120,200,0.85)';
+  ctx.fill();
+
+  // 身体
+  ctx.beginPath();
+  ctx.roundRect(-12*s, -bodyH*0.7, 24*s, bodyH*0.9, 4*s);
+  ctx.fillStyle = 'rgba(200,160,230,0.9)';
+  ctx.fill();
+
+  // 头
+  ctx.beginPath();
+  ctx.arc(0, -bodyH*0.85, 18*s, 0, Math.PI*2);
+  ctx.fillStyle = '#f5ddb0';
+  ctx.shadowColor = 'rgba(200,160,100,0.4)';
+  ctx.shadowBlur = 8*s;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // 发髻装饰
+  ctx.beginPath();
+  ctx.arc(0, -bodyH - 10*s, 8*s, 0, Math.PI*2);
+  ctx.fillStyle = '#3a2010';
+  ctx.fill();
+
+  // 胸骨点标注（仅在 showAnchor 时显示对应文字，骨骼点本身由 drawAnchorPoint 处理）
+  ctx.restore();
+}
+
+function drawAnchorPoint(x, y) {
+  ctx.save();
+  const s = devicePixelRatio;
+  // 外圈脉冲环
+  const pulse = (Date.now() % 1200) / 1200;
+  ctx.beginPath();
+  ctx.arc(x, y, (12 + pulse * 14) * s, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(255,160,60,${0.6 - pulse * 0.6})`;
+  ctx.lineWidth = 1.5 * s;
+  ctx.stroke();
+
+  // 中心环
+  ctx.beginPath();
+  ctx.arc(x, y, 8 * s, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,160,60,0.9)';
+  ctx.lineWidth = 2 * s;
+  ctx.stroke();
+
+  // × 符号
+  ctx.strokeStyle = '#ff9030';
+  ctx.lineWidth = 2 * s;
+  const r = 5 * s;
+  ctx.beginPath(); ctx.moveTo(x-r, y-r); ctx.lineTo(x+r, y+r); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x+r, y-r); ctx.lineTo(x-r, y+r); ctx.stroke();
+
+  // 标签
+  ctx.fillStyle = 'rgba(255,160,60,0.9)';
+  ctx.font = `${10 * s}px "Microsoft YaHei", sans-serif`;
+  ctx.fillText('胸骨锚点', x + 12*s, y + 4*s);
+  ctx.restore();
+}
+
+function drawCamera(x, y) {
+  const s = devicePixelRatio;
+  ctx.save();
+  ctx.translate(x, y);
+  // 相机主体
+  ctx.fillStyle = 'rgba(80,140,255,0.85)';
+  ctx.strokeStyle = 'rgba(140,180,255,0.9)';
+  ctx.lineWidth = 1.5 * s;
+  ctx.beginPath();
+  ctx.roundRect(-14*s, -9*s, 28*s, 18*s, 3*s);
+  ctx.fill(); ctx.stroke();
+  // 镜头圆
+  ctx.beginPath();
+  ctx.arc(0, 0, 5*s, 0, Math.PI*2);
+  ctx.fillStyle = '#1a2050';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(180,210,255,0.8)';
+  ctx.lineWidth = s;
+  ctx.stroke();
+  // 标签
+  ctx.fillStyle = 'rgba(140,180,255,0.8)';
+  ctx.font = `${9 * s}px "Microsoft YaHei", sans-serif`;
+  ctx.fillText('Camera', -12*s, 22*s);
+  ctx.restore();
+}
+
+function drawArrow(x1, y1, x2, y2, color) {
+  const s = devicePixelRatio;
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx*dx+dy*dy);
+  if (len < 20*s) return;
+  // 在连线中间偏相机侧 40% 处画箭头
+  const t = 0.45;
+  const mx = x1 + dx*t, my = y1 + dy*t;
+  const ux = dx/len, uy = dy/len;
+  const as = 8*s;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 1.5*s;
+  ctx.beginPath();
+  ctx.moveTo(mx - ux*as, my - uy*as);
+  ctx.lineTo(mx + ux*as, my + uy*as);
+  // 箭头头
+  const px = -uy, py = ux;
+  ctx.moveTo(mx + ux*as, my + uy*as);
+  ctx.lineTo(mx + ux*as*0.4 + px*as*0.5, my + uy*as*0.4 + py*as*0.5);
+  ctx.moveTo(mx + ux*as, my + uy*as);
+  ctx.lineTo(mx + ux*as*0.4 - px*as*0.5, my + uy*as*0.4 - py*as*0.5);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawHUD(W, H) {
+  const s = devicePixelRatio;
+  const pad = 16*s;
+  const bw = 160*s, bh = 28*s;
+  const bx = pad, by = H - pad - bh;
+
+  // 背景
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 5*s); ctx.fill();
+
+  // 轨道
+  const tx = bx + 10*s, ty = by + bh/2, tw = bw - 20*s;
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.beginPath(); ctx.roundRect(tx, ty-3*s, tw, 6*s, 3*s); ctx.fill();
+
+  // 填充
+  const ratio = (zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
+  const fillW = tw * ratio;
+  const grad = ctx.createLinearGradient(tx, 0, tx+tw, 0);
+  grad.addColorStop(0, 'oklch(0.55 0.2 250)');
+  grad.addColorStop(1, 'oklch(0.7 0.2 145)');
+  if (fillW > 0) {
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.roundRect(tx, ty-3*s, fillW, 6*s, 3*s); ctx.fill();
+  }
+
+  // 标签
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = `${9*s}px "Microsoft YaHei", sans-serif`;
+  ctx.fillText('MIN', tx - 1*s, by + 10*s);
+  ctx.fillText('MAX(TBD)', tx + tw - 20*s, by + 10*s);
+
+  // zoom 值
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${11*s}px monospace`;
+  ctx.fillText(`Zoom: ${zoom.toFixed(2)}`, tx + tw/2 - 22*s, by + bh*0.65);
+
+  ctx.restore();
+}
+
+// ── Update UI panel ─────────────────────────────────
+function updatePanel() {
+  document.getElementById('val-zoom').textContent = zoom.toFixed(2);
+  document.getElementById('val-cz').textContent = ((zoom - 1) * -2.5).toFixed(2);
+
+  const ratio = (zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
+  const pct = (ratio * 100).toFixed(1);
+  document.getElementById('bar-fill').style.width = pct + '%';
+  document.getElementById('bar-thumb').style.left = pct + '%';
+
+  const anchor = anchorPos();
+  document.getElementById('val-anchor').textContent =
+    `(${(anchor.x/devicePixelRatio).toFixed(0)}, ${(anchor.y/devicePixelRatio).toFixed(0)})`;
+}
+
+// ── Zoom logic ─────────────────────────────────────
+function applyZoom(delta) {
+  zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom + delta));
+  const cam = camPos();
+  trail.push({ x: cam.x, y: cam.y });
+  if (trail.length > 80) trail.shift();
+  updatePanel();
+}
+
+function resetZoom() {
+  zoom = MIN_ZOOM;
+  trail = [];
+  updatePanel();
+  draw();
+}
+
+// ── Mouse wheel ─────────────────────────────────────
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = -e.deltaY * 0.002;
+  applyZoom(delta);
+}, { passive: false });
+
+// ── Touch pinch ────────────────────────────────────
+function getTouchDist(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    lastPinchDist = getTouchDist(e.touches);
+    e.preventDefault();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const dist = getTouchDist(e.touches);
+    if (lastPinchDist !== null) {
+      const delta = (dist - lastPinchDist) * 0.008;
+      applyZoom(delta);
+    }
+    lastPinchDist = dist;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  if (e.touches.length < 2) lastPinchDist = null;
+});
+
+// ── Toggle listeners ───────────────────────────────
+document.getElementById('tog-anchor').addEventListener('change', e => {
+  showAnchor = e.target.checked;
+});
+document.getElementById('tog-line').addEventListener('change', e => {
+  showLine = e.target.checked;
+});
+document.getElementById('tog-trail').addEventListener('change', e => {
+  showTrail = e.target.checked;
+  if (!showTrail) trail = [];
+});
+
+// ── RAF loop ───────────────────────────────────────
+function loop() {
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+updatePanel();
+</script>
+</body>
+</html>
